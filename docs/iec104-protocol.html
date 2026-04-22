@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IEC 60870-5-104 协议帧解析参考</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6;padding:2rem}
+h1{text-align:center;font-size:2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+h2{color:#60a5fa;border-bottom:2px solid #1e3a5f;padding-bottom:.5rem;margin:2rem 0 1rem;font-size:1.4rem}
+h3{color:#a78bfa;margin:1.5rem 0 .8rem;font-size:1.1rem}
+.subtitle{text-align:center;color:#94a3b8;margin-bottom:2rem}
+.container{max-width:1100px;margin:0 auto}
+table{width:100%;border-collapse:collapse;margin:1rem 0;background:#1e293b;border-radius:8px;overflow:hidden}
+th{background:#334155;color:#93c5fd;padding:10px 14px;text-align:left;font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px}
+td{padding:8px 14px;border-top:1px solid #334155;font-size:.9rem}
+tr:hover td{background:#273548}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:700}
+.b-i{background:#2563eb33;color:#60a5fa;border:1px solid #2563eb}
+.b-s{background:#16a34a33;color:#4ade80;border:1px solid #16a34a}
+.b-u{background:#d9770633;color:#fb923c;border:1px solid #d97706}
+.b-m{background:#7c3aed33;color:#a78bfa;border:1px solid #7c3aed}
+.b-c{background:#dc262633;color:#f87171;border:1px solid #dc2626}
+code{background:#334155;padding:2px 6px;border-radius:4px;font-family:'Fira Code',monospace;font-size:.85rem;color:#fbbf24}
+.frame-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:1.2rem;margin:1rem 0}
+.byte-row{display:flex;gap:4px;margin:.6rem 0;flex-wrap:wrap}
+.byte{width:52px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-family:monospace;font-size:.8rem;font-weight:700;border:2px solid}
+.byte-start{background:#7c3aed22;border-color:#7c3aed;color:#c4b5fd}
+.byte-len{background:#2563eb22;border-color:#2563eb;color:#93c5fd}
+.byte-ctrl{background:#d9770622;border-color:#d97706;color:#fcd34d}
+.byte-data{background:#16a34a22;border-color:#16a34a;color:#86efac}
+.label-row{display:flex;gap:4px;margin-bottom:.2rem;flex-wrap:wrap}
+.label{width:52px;text-align:center;font-size:.65rem;color:#94a3b8}
+.note{background:#1e293b;border-left:4px solid #3b82f6;padding:.8rem 1rem;margin:1rem 0;border-radius:0 6px 6px 0;font-size:.9rem}
+.note-warn{border-left-color:#f59e0b}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:768px){.cols{grid-template-columns:1fr}}
+.toc{background:#1e293b;border-radius:8px;padding:1.2rem 1.5rem;margin:1.5rem 0}
+.toc a{color:#60a5fa;text-decoration:none;display:block;padding:3px 0}
+.toc a:hover{color:#93c5fd;text-decoration:underline}
+.hex{color:#fbbf24;font-family:monospace}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>IEC 60870-5-104 协议帧解析参考</h1>
+<p class="subtitle">Telecontrol — Network access for IEC 60870-5-101 using TCP/IP</p>
+
+<div class="toc">
+<strong>目录</strong>
+<a href="#overview">1. 协议概述</a>
+<a href="#apci">2. APCI 帧结构</a>
+<a href="#iframe">3. I 帧（信息帧）</a>
+<a href="#sframe">4. S 帧（监视帧）</a>
+<a href="#uframe">5. U 帧（无编号控制帧）</a>
+<a href="#asdu">6. ASDU 结构</a>
+<a href="#typeid">7. TypeID 类型标识</a>
+<a href="#cot">8. COT 传送原因</a>
+<a href="#quality">9. 品质描述词</a>
+<a href="#time">10. CP56Time2a 时标</a>
+<a href="#params">11. 连接参数</a>
+<a href="#statemachine">12. 连接状态机</a>
+</div>
+
+<!-- 1. 协议概述 -->
+<h2 id="overview">1. 协议概述</h2>
+<div class="frame-box">
+<p>IEC 60870-5-104 基于 TCP/IP 传输 IEC 60870-5-101 的应用层数据。</p>
+<table>
+<tr><th>属性</th><th>值</th></tr>
+<tr><td>传输层</td><td>TCP/IP</td></tr>
+<tr><td>默认端口</td><td><code>2404</code></td></tr>
+<tr><td>字节序</td><td>小端 (Little-Endian)</td></tr>
+<tr><td>最大帧长</td><td>255 字节 (APDU)</td></tr>
+<tr><td>启始字节</td><td><code>0x68</code></td></tr>
+</table>
+</div>
+
+<!-- 2. APCI -->
+<h2 id="apci">2. APCI 帧结构</h2>
+<p>每个 APDU = APCI (6 字节头) + ASDU (可选数据)</p>
+
+<div class="frame-box">
+<div class="label-row">
+<div class="label">Byte 0</div><div class="label">Byte 1</div>
+<div class="label">Byte 2</div><div class="label">Byte 3</div>
+<div class="label">Byte 4</div><div class="label">Byte 5</div>
+<div class="label">Byte 6+</div>
+</div>
+<div class="byte-row">
+<div class="byte byte-start">0x68</div>
+<div class="byte byte-len">长度</div>
+<div class="byte byte-ctrl">控制1</div>
+<div class="byte byte-ctrl">控制2</div>
+<div class="byte byte-ctrl">控制3</div>
+<div class="byte byte-ctrl">控制4</div>
+<div class="byte byte-data">ASDU...</div>
+</div>
+<p style="margin-top:.8rem;font-size:.85rem;color:#94a3b8">
+<strong>启始字节</strong> 固定 <code>0x68</code> ·
+<strong>长度</strong> = 后续字节数 (不含启始和长度本身, 最小4, 最大253) ·
+<strong>控制域</strong> 4字节决定帧类型
+</p>
+</div>
+
+<h3>帧类型判别</h3>
+<table>
+<tr><th>类型</th><th>控制域 Byte2 低2位</th><th>说明</th></tr>
+<tr><td><span class="badge b-i">I 帧</span></td><td>bit0 = <code>0</code></td><td>信息传输帧，携带 ASDU</td></tr>
+<tr><td><span class="badge b-s">S 帧</span></td><td><code>01</code></td><td>监视确认帧，不携带 ASDU</td></tr>
+<tr><td><span class="badge b-u">U 帧</span></td><td><code>11</code></td><td>无编号控制帧 (STARTDT/STOPDT/TESTFR)</td></tr>
+</table>
+
+<!-- 3. I 帧 -->
+<h2 id="iframe">3. I 帧（信息帧）<span class="badge b-i" style="margin-left:8px">I Frame</span></h2>
+<div class="frame-box">
+<div class="label-row">
+<div class="label">Byte 0</div><div class="label">Byte 1</div>
+<div class="label">Byte 2</div><div class="label">Byte 3</div>
+<div class="label">Byte 4</div><div class="label">Byte 5</div>
+<div class="label">Byte 6~N</div>
+</div>
+<div class="byte-row">
+<div class="byte byte-start">0x68</div>
+<div class="byte byte-len">Len</div>
+<div class="byte byte-ctrl">SSN低</div>
+<div class="byte byte-ctrl">SSN高</div>
+<div class="byte byte-ctrl">RSN低</div>
+<div class="byte byte-ctrl">RSN高</div>
+<div class="byte byte-data">ASDU</div>
+</div>
+</div>
+<table>
+<tr><th>字段</th><th>位置</th><th>说明</th></tr>
+<tr><td>SSN</td><td>Byte2-3, bit1~15</td><td>发送序号 (0~32767), <code>Byte2 bit0=0</code> 标识I帧</td></tr>
+<tr><td>RSN</td><td>Byte4-5, bit1~15</td><td>接收序号 (0~32767)</td></tr>
+<tr><td>ASDU</td><td>Byte6+</td><td>应用层数据单元</td></tr>
+</table>
+<div class="note">
+<strong>SSN 编码:</strong> <code>Byte2 = (SSN &lt;&lt; 1) &amp; 0xFF</code>, <code>Byte3 = (SSN &gt;&gt; 7) &amp; 0xFF</code><br>
+<strong>RSN 编码:</strong> <code>Byte4 = (RSN &lt;&lt; 1) &amp; 0xFF</code>, <code>Byte5 = (RSN &gt;&gt; 7) &amp; 0xFF</code>
+</div>
+
+<!-- 4. S 帧 -->
+<h2 id="sframe">4. S 帧（监视帧）<span class="badge b-s" style="margin-left:8px">S Frame</span></h2>
+<div class="frame-box">
+<div class="byte-row">
+<div class="byte byte-start">0x68</div>
+<div class="byte byte-len">0x04</div>
+<div class="byte byte-ctrl">0x01</div>
+<div class="byte byte-ctrl">0x00</div>
+<div class="byte byte-ctrl">RSN低</div>
+<div class="byte byte-ctrl">RSN高</div>
+</div>
+</div>
+<p>固定 6 字节，无 ASDU。<code>Byte2=0x01</code> (bit0=1, bit1=0) 标识 S 帧。仅用于确认对方发送序号。</p>
+
+<!-- 5. U 帧 -->
+<h2 id="uframe">5. U 帧（控制帧）<span class="badge b-u" style="margin-left:8px">U Frame</span></h2>
+<div class="frame-box">
+<div class="byte-row">
+<div class="byte byte-start">0x68</div>
+<div class="byte byte-len">0x04</div>
+<div class="byte byte-ctrl">功能</div>
+<div class="byte byte-ctrl">0x00</div>
+<div class="byte byte-ctrl">0x00</div>
+<div class="byte byte-ctrl">0x00</div>
+</div>
+</div>
+<table>
+<tr><th>U 帧类型</th><th>Byte2</th><th>十六进制帧</th><th>用途</th></tr>
+<tr><td>STARTDT Act</td><td><code>0x07</code></td><td class="hex">68 04 07 00 00 00</td><td>请求启动数据传输</td></tr>
+<tr><td>STARTDT Con</td><td><code>0x0B</code></td><td class="hex">68 04 0B 00 00 00</td><td>确认启动数据传输</td></tr>
+<tr><td>STOPDT Act</td><td><code>0x13</code></td><td class="hex">68 04 13 00 00 00</td><td>请求停止数据传输</td></tr>
+<tr><td>STOPDT Con</td><td><code>0x23</code></td><td class="hex">68 04 23 00 00 00</td><td>确认停止数据传输</td></tr>
+<tr><td>TESTFR Act</td><td><code>0x43</code></td><td class="hex">68 04 43 00 00 00</td><td>测试帧（心跳）</td></tr>
+<tr><td>TESTFR Con</td><td><code>0x83</code></td><td class="hex">68 04 83 00 00 00</td><td>测试帧确认</td></tr>
+</table>
+
+<!-- 6. ASDU -->
+<h2 id="asdu">6. ASDU 结构</h2>
+<div class="frame-box">
+<div class="label-row">
+<div class="label">Byte 0</div><div class="label">Byte 1</div>
+<div class="label">Byte 2</div><div class="label">Byte 3</div>
+<div class="label">Byte 4-5</div><div class="label">Byte 6+</div>
+</div>
+<div class="byte-row">
+<div class="byte byte-ctrl">TypeID</div>
+<div class="byte byte-ctrl">限定词</div>
+<div class="byte byte-data">COT低</div>
+<div class="byte byte-data">COT高</div>
+<div class="byte byte-len">CA</div>
+<div class="byte byte-start">信息体...</div>
+</div>
+</div>
+<table>
+<tr><th>字段</th><th>大小</th><th>说明</th></tr>
+<tr><td>TypeID</td><td>1 字节</td><td>类型标识 (见第7节)</td></tr>
+<tr><td>限定词</td><td>1 字节</td><td>bit7=SQ (顺序标志), bit0~6=对象数量</td></tr>
+<tr><td>COT</td><td>2 字节</td><td>传送原因 (见第8节), 含 ORG (源发站地址)</td></tr>
+<tr><td>CA</td><td>2 字节</td><td>公共地址 (站地址), 小端</td></tr>
+<tr><td>信息体</td><td>可变</td><td>一个或多个信息对象</td></tr>
+</table>
+<div class="note">
+<strong>SQ=0:</strong> 每个信息对象各含 IOA (3字节) + 数据<br>
+<strong>SQ=1:</strong> 仅第一个对象含 IOA, 后续 IOA 自动递增
+</div>
+
+<!-- 7. TypeID -->
+<h2 id="typeid">7. TypeID 类型标识</h2>
+<h3>监视方向 (子站 → 主站)</h3>
+<table>
+<tr><th>TypeID</th><th>名称</th><th>说明</th><th>数据长度</th></tr>
+<tr><td>1</td><td>M_SP_NA</td><td>单点遥信</td><td>IOA(3) + SIQ(1)</td></tr>
+<tr><td>3</td><td>M_DP_NA</td><td>双点遥信</td><td>IOA(3) + DIQ(1)</td></tr>
+<tr><td>5</td><td>M_ST_NA</td><td>步位置信息</td><td>IOA(3) + VTI(1) + QDS(1)</td></tr>
+<tr><td>9</td><td>M_ME_NA</td><td>归一化遥测</td><td>IOA(3) + NVA(2) + QDS(1)</td></tr>
+<tr><td>11</td><td>M_ME_NB</td><td>标度化遥测</td><td>IOA(3) + SVA(2) + QDS(1)</td></tr>
+<tr><td>13</td><td>M_ME_NC</td><td>短浮点遥测</td><td>IOA(3) + Float(4) + QDS(1)</td></tr>
+<tr><td>15</td><td>M_IT_NA</td><td>电度量</td><td>IOA(3) + BCR(5)</td></tr>
+<tr><td>30</td><td>M_SP_TB</td><td>带时标单点遥信</td><td>IOA(3) + SIQ(1) + CP56(7)</td></tr>
+<tr><td>31</td><td>M_DP_TB</td><td>带时标双点遥信</td><td>IOA(3) + DIQ(1) + CP56(7)</td></tr>
+<tr><td>36</td><td>M_ME_TF</td><td>带时标短浮点遥测</td><td>IOA(3) + Float(4) + QDS(1) + CP56(7)</td></tr>
+</table>
+
+<h3>控制方向 (主站 → 子站)</h3>
+<table>
+<tr><th>TypeID</th><th>名称</th><th>说明</th><th>数据长度</th></tr>
+<tr><td>45</td><td>C_SC_NA</td><td>单点遥控</td><td>IOA(3) + SCO(1)</td></tr>
+<tr><td>46</td><td>C_DC_NA</td><td>双点遥控</td><td>IOA(3) + DCO(1)</td></tr>
+<tr><td>47</td><td>C_RC_NA</td><td>步调节命令</td><td>IOA(3) + RCO(1)</td></tr>
+<tr><td>48</td><td>C_SE_NA</td><td>归一化设点</td><td>IOA(3) + NVA(2) + QOS(1)</td></tr>
+<tr><td>50</td><td>C_SE_NC</td><td>短浮点设点</td><td>IOA(3) + Float(4) + QOS(1)</td></tr>
+</table>
+
+<h3>系统命令</h3>
+<table>
+<tr><th>TypeID</th><th>名称</th><th>说明</th></tr>
+<tr><td>100</td><td>C_IC_NA</td><td>站总召唤 (QOI=20)</td></tr>
+<tr><td>101</td><td>C_CI_NA</td><td>电度总召唤</td></tr>
+<tr><td>103</td><td>C_CS_NA</td><td>时钟同步</td></tr>
+<tr><td>70</td><td>M_EI_NA</td><td>初始化结束</td></tr>
+</table>
+
+<!-- 8. COT -->
+<h2 id="cot">8. COT 传送原因</h2>
+<table>
+<tr><th>编码</th><th>名称</th><th>说明</th></tr>
+<tr><td>1</td><td>Periodic</td><td>周期/循环传输</td></tr>
+<tr><td>2</td><td>Background</td><td>背景扫描</td></tr>
+<tr><td>3</td><td>Spontaneous</td><td>突发 (自发变化)</td></tr>
+<tr><td>4</td><td>Initialized</td><td>初始化完成</td></tr>
+<tr><td>5</td><td>Request</td><td>请求/被请求</td></tr>
+<tr><td>6</td><td>Activation</td><td>激活</td></tr>
+<tr><td>7</td><td>ActivationCon</td><td>激活确认</td></tr>
+<tr><td>8</td><td>Deactivation</td><td>停止激活</td></tr>
+<tr><td>9</td><td>DeactivationCon</td><td>停止激活确认</td></tr>
+<tr><td>10</td><td>ActivationTerm</td><td>激活终止</td></tr>
+<tr><td>20</td><td>InterrogatedByStation</td><td>响应站总召唤</td></tr>
+<tr><td>37</td><td>ReqByGeneralCounter</td><td>响应电度总召</td></tr>
+<tr><td>44</td><td>UnknownTypeID</td><td>未知类型标识</td></tr>
+<tr><td>45</td><td>UnknownCOT</td><td>未知传送原因</td></tr>
+<tr><td>46</td><td>UnknownCA</td><td>未知公共地址</td></tr>
+<tr><td>47</td><td>UnknownIOA</td><td>未知信息对象地址</td></tr>
+</table>
+
+<!-- 9. 品质 -->
+<h2 id="quality">9. 品质描述词 (QDS)</h2>
+<table>
+<tr><th>Bit</th><th>名称</th><th>含义</th></tr>
+<tr><td>0</td><td>OV (Overflow)</td><td>溢出: 1=值超出范围</td></tr>
+<tr><td>4</td><td>BL (Blocked)</td><td>封锁: 1=值被封锁</td></tr>
+<tr><td>5</td><td>SB (Substituted)</td><td>取代: 1=值被人工替换</td></tr>
+<tr><td>6</td><td>NT (Not Topical)</td><td>非当前: 1=值已过时</td></tr>
+<tr><td>7</td><td>IV (Invalid)</td><td>无效: 1=值不可信</td></tr>
+</table>
+
+<!-- 10. 时标 -->
+<h2 id="time">10. CP56Time2a 时标 (7 字节)</h2>
+<table>
+<tr><th>字节</th><th>内容</th><th>范围</th></tr>
+<tr><td>Byte 0-1</td><td>毫秒 (小端)</td><td>0~59999</td></tr>
+<tr><td>Byte 2</td><td>bit0~5=分钟, bit6=IV</td><td>0~59</td></tr>
+<tr><td>Byte 3</td><td>bit0~4=小时, bit5=SU(夏令时)</td><td>0~23</td></tr>
+<tr><td>Byte 4</td><td>bit0~4=日, bit5~7=星期</td><td>1~31, 1~7</td></tr>
+<tr><td>Byte 5</td><td>bit0~3=月</td><td>1~12</td></tr>
+<tr><td>Byte 6</td><td>bit0~6=年 (2000+)</td><td>0~99</td></tr>
+</table>
+
+<!-- 11. 连接参数 -->
+<h2 id="params">11. 连接参数</h2>
+<table>
+<tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+<tr><td>t0</td><td>30s</td><td>TCP 连接建立超时</td></tr>
+<tr><td>t1</td><td>15s</td><td>发送 I 帧后等待确认的超时</td></tr>
+<tr><td>t2</td><td>10s</td><td>收到 I 帧后必须发送 S 帧确认的最大延迟 (t2 &lt; t1)</td></tr>
+<tr><td>t3</td><td>20s</td><td>空闲时发送 TESTFR 的间隔</td></tr>
+<tr><td>k</td><td>12</td><td>未确认 I 帧的最大数量</td></tr>
+<tr><td>w</td><td>8</td><td>收到 w 个 I 帧后必须发送 S 帧 (w ≤ 2/3·k)</td></tr>
+</table>
+
+<!-- 12. 状态机 -->
+<h2 id="statemachine">12. 连接状态机</h2>
+<div class="frame-box" style="text-align:center;font-family:monospace;font-size:.85rem;line-height:2">
+<pre style="display:inline-block;text-align:left;color:#e2e8f0">
+ ┌──────────┐
+ │ 空闲状态  │
+ └────┬─────┘
+      │ TCP connect
+ ┌────▼──────────┐
+ │ TCP 已连接     │
+ └────┬──────────┘
+      │ STARTDT Act ──► STARTDT Con
+ ┌────▼──────────┐
+ │ 数据传输中     │◄──── I帧/S帧/U帧 ────►
+ └────┬──────────┘
+      │ STOPDT Act ──► STOPDT Con
+ ┌────▼──────────┐
+ │ 传输已停止     │
+ └────┬──────────┘
+      │ TCP close
+ ┌────▼──────────┐
+ │ 连接断开       │
+ └───────────────┘
+</pre>
+</div>
+
+<div style="text-align:center;margin-top:3rem;color:#64748b;font-size:.8rem">
+<p>IEC 60870-5-104 协议帧解析参考 · 由 iec104-gateway 项目生成</p>
+<p>标准参考: IEC 60870-5-104:2006 / GB/T 18657.5-2017</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Cabal build artifacts
+dist-newstyle/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# HLS
+.hie/
+.ghc.environment.*
+
+# OS
+.DS_Store
+Thumbs.db

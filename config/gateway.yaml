@@ -1,0 +1,63 @@
+# 网关配置
+gateway:
+  name: "SubStation-GW-01"
+  log_level: "info"          # debug | info | warn | error
+
+# Server 端配置（面向主站）
+server:
+  listen_port: 2404
+  max_connections: 10
+
+# Client 端配置（面向子站/RTU）
+clients:
+  - name: "RTU-01"
+    host: "192.168.1.101"
+    port: 2404
+    common_address: 1
+    reconnect_interval: 5    # 秒
+
+  - name: "RTU-02"
+    host: "192.168.1.102"
+    port: 2404
+    common_address: 2
+    reconnect_interval: 5
+
+# 地址映射规则
+# 将子站的 IOA 地址空间映射到网关的统一地址空间
+address_mapping:
+  - source:
+      station: "RTU-01"
+      ioa_start: 1
+      ioa_count: 100
+    target:
+      ioa_start: 1001
+
+  - source:
+      station: "RTU-01"
+      ioa_start: 16385       # 0x4001, 遥测起始
+      ioa_count: 50
+    target:
+      ioa_start: 17001
+
+  - source:
+      station: "RTU-02"
+      ioa_start: 1
+      ioa_count: 100
+    target:
+      ioa_start: 2001
+
+  - source:
+      station: "RTU-02"
+      ioa_start: 16385
+      ioa_count: 50
+    target:
+      ioa_start: 18001
+
+# IEC 104 连接参数
+timeouts:
+  t0: 30                    # TCP 连接建立超时（秒）
+  t1: 15                    # 发送帧后等待确认超时（秒）
+  t2: 10                    # 收到 I 帧后发送 S 帧确认的最大延迟（秒）
+  t3: 20                    # 空闲时发送 TESTFR 的间隔（秒）
+  k: 12                     # 未确认 I 帧的最大数量
+  w: 8                      # 收到 w 个 I 帧后必须发送 S 帧确认
