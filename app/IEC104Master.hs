@@ -46,7 +46,7 @@ main = do
 
     bracket (openSocket addr) close $ \sock -> do
         connect sock (addrAddress addr)
-        putStrLn "[Master] ✓ TCP 连接成功"
+        putStrLn "[Master]TCP 连接成功"
         hFlush stdout
 
         -- 状态
@@ -102,11 +102,11 @@ handleReceivedFrame sock recvSeqRef frameData = do
             putStrLn $ "\n[收到] 解码错误: " ++ show err
         Right frame -> case frame of
             UFrame StartDTCon ->
-                putStrLn "\n[收到] ✓ STARTDT Con — 数据传输已激活"
+                putStrLn "\n[收到]  STARTDT Con — 数据传输已激活"
             UFrame StopDTCon ->
-                putStrLn "\n[收到] ✗ STOPDT Con — 数据传输已停止"
+                putStrLn "\n[收到]  STOPDT Con — 数据传输已停止"
             UFrame TestFRCon ->
-                putStrLn "\n[收到] ♥ TESTFR Con — 心跳正常"
+                putStrLn "\n[收到]  TESTFR Con — 心跳正常"
             UFrame utype ->
                 putStrLn $ "\n[收到] U帧: " ++ show utype
             SFrame rsn ->

@@ -28,11 +28,11 @@ runTestEq name expected actual
 
 printResult :: TestResult -> IO Bool
 printResult (Pass name) = do
-    putStrLn $ "  ✓ " ++ name
+    putStrLn $ "   " ++ name
     hFlush stdout
     return True
 printResult (Fail name msg) = do
-    putStrLn $ "  ✗ " ++ name ++ " — " ++ msg
+    putStrLn $ "   " ++ name ++ " — " ++ msg
     hFlush stdout
     return False
 

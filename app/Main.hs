@@ -128,14 +128,14 @@ handleFrame tag sock started frameData = do
                     putStrLn $ tag ++ "收到 STARTDT Act → 回复 STARTDT Con"
                     sendFrame tag sock (UFrame StartDTCon)
                     writeIORef' started True
-                    putStrLn $ tag ++ "✓ 数据传输已激活"
+                    putStrLn $ tag ++ " 数据传输已激活"
                     hFlush stdout
 
                 UFrame StopDTAct -> do
                     putStrLn $ tag ++ "收到 STOPDT Act → 回复 STOPDT Con"
                     sendFrame tag sock (UFrame StopDTCon)
                     writeIORef' started False
-                    putStrLn $ tag ++ "✗ 数据传输已停止"
+                    putStrLn $ tag ++ " 数据传输已停止"
                     hFlush stdout
 
                 UFrame TestFRAct -> do
@@ -163,7 +163,7 @@ handleFrame tag sock started frameData = do
                             sendFrame tag sock (SFrame (ssn + 1))
                             hFlush stdout
                         else do
-                            putStrLn $ tag ++ "⚠ 收到 I 帧但数据传输未激活，忽略"
+                            putStrLn $ tag ++ " 收到 I 帧但数据传输未激活，忽略"
                             hFlush stdout
 
 -- | IORef 严格写入
