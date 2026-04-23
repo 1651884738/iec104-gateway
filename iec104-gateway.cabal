@@ -70,6 +70,7 @@ library
         Protocol.InfoObject
         Protocol.Time
         Protocol.Quality
+        Protocol.HexDump
         -- 连接管理层
         Connection.Config
         Connection.SeqNum

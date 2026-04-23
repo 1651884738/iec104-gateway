@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IEC 104 规约闪卡</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --primary: #3b82f6;
+            --secondary: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* 模拟手机 9:16 比例容器 */
+        .app-container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 450px;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        @media (min-aspect-ratio: 9/16) {
+            .app-container {
+                height: 90vh;
+                aspect-ratio: 9/16;
+                border-radius: 24px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                border: 8px solid #1e293b;
+                overflow: hidden;
+            }
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .progress {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+            font-weight: 600;
+        }
+
+        /* 闪卡区域 */
+        .card-container {
+            flex: 1;
+            perspective: 1000px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            width: 100%;
+            height: 85%;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-front {
+            /* 正面样式 */
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            background: linear-gradient(145deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9));
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .tag {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .card-front h2 {
+            font-size: 1.8rem;
+            line-height: 1.4;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        .card-back h3 {
+            color: #93c5fd;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+            width: 100%;
+        }
+
+        .card-back p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: #cbd5e1;
+            text-align: left;
+            width: 100%;
+        }
+
+        .card-back ul {
+            text-align: left;
+            width: 100%;
+            padding-left: 20px;
+            margin-top: 10px;
+        }
+
+        .card-back li {
+            margin-bottom: 12px;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .card-back strong {
+            color: #f8fafc;
+            color: #a78bfa;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* 底部控制栏 */
+        .controls {
+            padding: 20px 30px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(5px);
+        }
+
+        .btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            width: 120px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>IEC 104 记忆卡</h1>
+        <div class="progress"><span id="current-idx">1</span> / <span id="total-cards">8</span></div>
+    </header>
+
+    <div class="card-container">
+        <div class="card" id="flashcard" onclick="flipCard()">
+            <div class="card-inner">
+                <!-- 正面 -->
+                <div class="card-face card-front">
+                    <span class="tag" id="card-tag">APCI 基础</span>
+                    <h2 id="card-question">APCI 帧头由哪几部分组成？</h2>
+                    <div class="hint">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                        点击翻转查看答案
+                    </div>
+                </div>
+                <!-- 背面 -->
+                <div class="card-face card-back">
+                    <h3 id="card-title">APCI 结构 (6字节)</h3>
+                    <div id="card-answer">
+                        <ul>
+                            <li><strong>起始符：</strong> 固定为 0x68 (1字节)</li>
+                            <li><strong>帧长度：</strong> APDU的长度，最大253 (1字节)</li>
+                            <li><strong>控制域：</strong> 用于区分帧类型和序列号 (4字节)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="btn-prev" onclick="prevCard()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="btn btn-primary" onclick="randomCard()">随机抽取</button>
+        <button class="btn" id="btn-next" onclick="nextCard()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+    </div>
+</div>
+
+<script>
+    const cardsData = [
+        {
+            tag: "APCI 基础",
+            question: "APCI 帧头由哪几部分组成？",
+            title: "APCI 结构 (6字节)",
+            answer: `<ul>
+                <li><strong>起始符：</strong>固定为 <code>0x68</code> (1字节)</li>
+                <li><strong>帧长度：</strong>记录控制域+ASDU的长度 (1字节)</li>
+                <li><strong>控制域：</strong>用于区分帧类型和序列号 (4字节)</li>
+            </ul>`
+        },
+        {
+            tag: "核心概念",
+            question: "104 规约有哪三种核心帧格式？",
+            title: "三大帧格式",
+            answer: `<ul>
+                <li><strong>I 帧 (信息帧)：</strong>带有 ASDU 载荷，用于传输实际业务数据。</li>
+                <li><strong>S 帧 (监视帧)：</strong>只有 APCI，用于对收到的 I 帧进行确认。</li>
+                <li><strong>U 帧 (控制帧)：</strong>只有 APCI，用于启停数据传输和心跳测试。</li>
+            </ul>`
+        },
+        {
+            tag: "格式识别",
+            question: "如何从控制域字节中，一眼识别出 I 帧？",
+            title: "I 帧特征",
+            answer: `<p>观察控制域的<strong>第 1 个字节</strong>：</p>
+            <ul>
+                <li>如果其最低位 (Bit 0) 为 <strong>0</strong>，则一定是 I 帧。</li>
+                <li>即：<code>Ctrl1 & 0x01 == 0</code></li>
+                <li>I 帧的控制域包含了 <strong>发送序号(SSN)</strong> 和 <strong>接收序号(RSN)</strong>。</li>
+            </ul>`
+        },
+        {
+            tag: "格式识别",
+            question: "如何从控制域字节中，一眼识别出 S 帧？",
+            title: "S 帧特征",
+            answer: `<p>观察控制域的<strong>第 1 个字节</strong>：</p>
+            <ul>
+                <li>如果其最低两位为 <strong>01</strong>，则一定是 S 帧。</li>
+                <li>S 帧通常长这样：<code>01 00 xx xx</code></li>
+                <li>S 帧仅包含 <strong>接收序号(RSN)</strong>，用来告诉对方："我收到这之前的所有包了"。</li>
+            </ul>`
+        },
+        {
+            tag: "格式识别",
+            question: "常见的 U 帧有哪几种？如何识别？",
+            title: "U 帧特征 (末两位为11)",
+            answer: `<ul>
+                <li><strong>0x07</strong> : 启动激活 (STARTDT Act)</li>
+                <li><strong>0x0B</strong> : 启动确认 (STARTDT Con)</li>
+                <li><strong>0x43</strong> : 心跳测试 (TESTFR Act)</li>
+                <li><strong>0x83</strong> : 心跳确认 (TESTFR Con)</li>
+                <li><strong>0x13</strong> : 停止激活 (STOPDT Act)</li>
+            </ul>`
+        },
+        {
+            tag: "ASDU 基础",
+            question: "ASDU (应用服务数据单元) 的头部由哪 4 个字段组成？",
+            title: "ASDU 头部 (6字节)",
+            answer: `<ol>
+                <li><strong>类型标识 (TypeID)：</strong>1字节，指明数据类型(如遥测、遥信)。</li>
+                <li><strong>可变结构 (SQ/Num)：</strong>1字节，包含寻址方式和对象数量。</li>
+                <li><strong>传送原因 (COT)：</strong>2字节，指明为什么发这包数据。</li>
+                <li><strong>公共地址 (CA)：</strong>2字节，通常代表厂站号。</li>
+            </ol>`
+        },
+        {
+            tag: "ASDU 进阶",
+            question: "请列举几个最常用、必背的 TypeID (类型标识)？",
+            title: "常用 TypeID",
+            answer: `<ul>
+                <li><strong>45：</strong>单点遥控 (C_SC_NA_1)</li>
+                <li><strong>100：</strong>站总召唤 (C_IC_NA_1)</li>
+                <li><strong>101：</strong>电度总召唤 (C_CI_NA_1)</li>
+                <li><strong>103：</strong>时钟同步命令 (C_CS_NA_1)</li>
+                <li><strong>1或3：</strong>单点/双点遥信</li>
+                <li><strong>9或13：</strong>归一化/短浮点数遥测</li>
+            </ul>`
+        },
+        {
+            tag: "ASDU 进阶",
+            question: "常见的 COT (传送原因) 对应哪些场景？",
+            title: "常用 COT",
+            answer: `<ul>
+                <li><strong>3 (突发)：</strong>设备状态自然变位时主动上送。</li>
+                <li><strong>6 (激活)：</strong>主站下发命令(如遥控/总召)时的原因。</li>
+                <li><strong>7 (激活确认)：</strong>子站收到命令后的第一步回复。</li>
+                <li><strong>20 (响应总召)：</strong>子站由于收到总召命令而上送的实时数据。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "104 规约在网络传输时采用的是大端序还是小端序？",
+            title: "小端字节序 (Little-Endian)",
+            answer: `<p><strong>低字节在前，高字节在后。</strong></p>
+            <ul>
+                <li>例如：公共地址 (CA) 值为 <code>1</code> 时，发送的 2 字节是 <code>01 00</code>。</li>
+                <li>例如：IOA 为 <code>4001</code> (十六进制 0x0FA1) 时，发送的 3 字节是 <code>A1 0F 00</code>。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "信息对象地址 (IOA) 占用几个字节？如何解析？",
+            title: "信息对象地址 IOA",
+            answer: `<p>104 规约中 IOA 规定占用 <strong>3 个字节</strong>。</p>
+            <ul>
+                <li>同样遵循小端序。</li>
+                <li>例如报文 <code>14 00 00</code>，代表 IOA = 0x000014，即十进制的 20。</li>
+                <li>IOA 是网关区分具体是哪个测点(开关、传感器)的唯一标识。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "浮点数 (TypeID=13) 在 104 中如何用十六进制表示？",
+            title: "IEEE 754 短浮点数",
+            answer: `<p>占用 <strong>4个字节</strong> (32位单精度浮点数)。</p>
+            <ul>
+                <li>遵循 IEEE 754 标准，并按小端序传输。</li>
+                <li>比如测点值为 <code>25.5</code>，其标准的 16 进制为 <code>41 CC 00 00</code>。</li>
+                <li>网络传输的字节顺序则为：<code>00 00 CC 41</code>。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "质量描述词 (Quality Descriptor) 有什么用？",
+            title: "数据质量位",
+            answer: `<p>紧跟在数据值后的 1 字节，用于说明当前数据的有效性。</p>
+            <ul>
+                <li><strong>IV (Invalid)：</strong>最高位(Bit 7)，置1表示数据无效。</li>
+                <li><strong>NT (Non-Topical)：</strong>置1表示非当前值(旧数据)。</li>
+                <li><strong>SB (Substituted)：</strong>置1表示取代值(人工设置的假数据)。</li>
+                <li><strong>BL (Blocked)：</strong>置1表示被闭锁。</li>
+            </ul>`
+        },
+        {
+            tag: "遥信详解",
+            question: "单点遥信 (SPI) 和 双点遥信 (DPI) 的区别？",
+            title: "SPI vs DPI",
+            answer: `<ul>
+                <li><strong>单点 (SPI)：</strong>1个位表示状态。0=分/关，1=合/开。TypeID=1 或 2。</li>
+                <li><strong>双点 (DPI)：</strong>2个位表示状态。00=不确定，01=分，10=合，11=中间状态/故障。TypeID=3 或 4。双点更能反映断路器的真实动作过程。</li>
+            </ul>`
+        },
+        {
+            tag: "寻址方式",
+            question: "可变结构限定词中，SQ=0 和 SQ=1 的区别是什么？",
+            title: "连续与非连续寻址",
+            answer: `<ul>
+                <li><strong>SQ=0 (非连续)：</strong>每个数据点都必须带一个 3 字节的 IOA。<br>格式：[IOA1][数据1] [IOA2][数据2]</li>
+                <li><strong>SQ=1 (连续)：</strong>只带第一个测点的 IOA，后续测点的地址默认依次+1。<br>格式：[起始IOA][数据1][数据2][数据3]</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "时钟同步报文 (TypeID=103) 中的时间戳有几个字节？",
+            title: "CP56Time2a (7字节)",
+            answer: `<p>占用 <strong>7 个字节</strong>，包含毫秒到年：</p>
+            <ul>
+                <li>字节1-2：毫秒 (0~59999)</li>
+                <li>字节3：分 (0~59) + IV(无效位)</li>
+                <li>字节4：时 (0~23) + SU(夏令时)</li>
+                <li>字节5：日 (1~31) + 星期</li>
+                <li>字节6：月 (1~12)</li>
+                <li>字节7：年 (0~99)</li>
+            </ul>`
+        },
+        {
+            tag: "遥控机制",
+            question: "标准 104 遥控为什么通常需要两步？",
+            title: "选择与执行 (Select / Execute)",
+            answer: `<p>为了防止误动，遥控通常采用 <strong>“选择-执行” (SBO)</strong> 机制：</p>
+            <ol>
+                <li>主站发送“选择”命令 (S/E=1)</li>
+                <li>子站回复“选择确认”，证明通道和设备正常</li>
+                <li>主站发送“执行”命令 (S/E=0)</li>
+                <li>子站执行并回复“执行确认”</li>
+            </ol>`
+        },
+        {
+            tag: "遥控机制",
+            question: "遥控报文中的 S/E 位在哪？如何区分选择还是执行？",
+            title: "S/E 位解析",
+            answer: `<p>遥控命令信息体最后 1 字节包含 <strong>SCO (单点控制命令)</strong>：</p>
+            <ul>
+                <li><strong>S/E 位：</strong>最高位(Bit 7)。0=执行(Execute)，1=选择(Select)。</li>
+                <li><strong>控制状态：</strong>最低位(Bit 0)。0=分/关(Off)，1=合/开(On)。</li>
+                <li>例如 <code>81</code> (10000001) = 选择合闸；<code>01</code> (00000001) = 执行合闸。</li>
+            </ul>`
+        },
+        {
+            tag: "超时机制",
+            question: "104 规约中的 t1, t2, t3 计时器分别是什么？",
+            title: "超时计时器",
+            answer: `<ul>
+                <li><strong>t1：</strong>发送 I 或 U 帧后，等待对方确认的超时时间(通常15秒)。超时未确认将断开连接。</li>
+                <li><strong>t2：</strong>收到 I 帧后，延迟发送 S 帧确认的时间(通常10秒)。必须满足 t2 &lt; t1。</li>
+                <li><strong>t3：</strong>长期无数据交互时，发送 TESTFR(心跳) 的空闲时间(通常20秒)。</li>
+            </ul>`
+        },
+        {
+            tag: "窗口机制",
+            question: "k 和 w 参数在 104 协议中起什么作用？",
+            title: "发送与接收窗口 (k & w)",
+            answer: `<ul>
+                <li><strong>k (发送窗口)：</strong>发送方在未收到确认前，最多可以连续发送 k 个 I 帧 (默认12)。</li>
+                <li><strong>w (确认窗口)：</strong>接收方最多收到 w 个 I 帧后，必须发送一次确认 S 帧 (默认8)。必须满足 w &lt; k。</li>
+            </ul>`
+        },
+        {
+            tag: "业务流程",
+            question: "什么是总召唤 (总召)？它在什么时候执行？",
+            title: "总召唤机制 (TypeID=100)",
+            answer: `<p>总召唤要求子站把当前所有测点的最新状态全部上报一遍。</p>
+            <ul>
+                <li>通常在 <strong>STARTDT 握手成功后立即执行</strong>，用于初始化主站的数据库。</li>
+                <li>流程：主站发总召 -> 子站回总召确认 -> 子站连续发送各测点数据(COT=20) -> 子站发总召结束。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "TypeID=9 (测量值) 和 TypeID=13 (短浮点数) 的主要区别？",
+            title: "遥测类型对比",
+            answer: `<ul>
+                <li><strong>Type 9 (规一化值)：</strong>用 2 字节(16位有符号整数)表示，精度较低，通常表示量程的百分比或经过一次换算的整数值。</li>
+                <li><strong>Type 13 (短浮点数)：</strong>用 4 字节(IEEE 754 单精度)表示，精度高，能直接表示如 <code>220.5V</code> 这样的真实物理量。现代系统多推荐使用 13。</li>
+            </ul>`
+        },
+        {
+            tag: "帧序号",
+            question: "发送序号 SSN 和接收序号 RSN 何时会归零？",
+            title: "序号回绕机制",
+            answer: `<p>序号用于防止丢包和乱序：</p>
+            <ul>
+                <li>占用 15 位 (0 ~ 32767)。</li>
+                <li>每次成功发送/接收一个 I 帧，对应序号加 1。</li>
+                <li>当序号达到 <strong>32767</strong> 后，下一个序号直接回绕变成 <strong>0</strong>。</li>
+            </ul>`
+        },
+        {
+            tag: "业务流程",
+            question: "电度总召 (TypeID=101) 和普通总召 (Type=100) 有何不同？",
+            title: "电度总召",
+            answer: `<p>电度(累计量/计数值)不能通过普通总召唤获取，必须单独请求。</p>
+            <ul>
+                <li>普通总召(100)获取：遥信(开关)、遥测(电压电流)。</li>
+                <li>电度总召(101)获取：累加值(电表底数)，返回TypeID通常是 15(整数累加量)。</li>
+            </ul>`
+        },
+        {
+            tag: "规约细节",
+            question: "如果在传输过程中发生 TCP 粘包或半包，104 网关应该如何处理？",
+            title: "粘包处理机制",
+            answer: `<p>由于 TCP 是流式传输：</p>
+            <ul>
+                <li>必须先读取 2 个字节，解析出帧长度 <code>Len</code>。</li>
+                <li>再读取 <code>Len</code> 字节作为完整的一帧。</li>
+                <li>如果剩余字节不够 <code>Len</code>，则必须缓存等待下一次 TCP 接收，这就是半包处理。</li>
+            </ul>`
+        }
+    ];
+
+    let currentIndex = 0;
+    const cardEl = document.getElementById('flashcard');
+    const totalEl = document.getElementById('total-cards');
+    const currentEl = document.getElementById('current-idx');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    // DOM Elements
+    const tagEl = document.getElementById('card-tag');
+    const questionEl = document.getElementById('card-question');
+    const titleEl = document.getElementById('card-title');
+    const answerEl = document.getElementById('card-answer');
+
+    function init() {
+        totalEl.innerText = cardsData.length;
+        loadCard(0);
+    }
+
+    function loadCard(index) {
+        // 先翻回来
+        if(cardEl.classList.contains('flipped')) {
+            cardEl.classList.remove('flipped');
+            setTimeout(() => updateContent(index), 300); // 等待翻转动画过半再更新文字
+        } else {
+            updateContent(index);
+        }
+    }
+
+    function updateContent(index) {
+        const data = cardsData[index];
+        tagEl.innerText = data.tag;
+        questionEl.innerHTML = data.question;
+        titleEl.innerText = data.title;
+        answerEl.innerHTML = data.answer;
+        
+        currentEl.innerText = index + 1;
+        currentIndex = index;
+
+        btnPrev.disabled = index === 0;
+        btnNext.disabled = index === cardsData.length - 1;
+    }
+
+    function flipCard() {
+        cardEl.classList.toggle('flipped');
+    }
+
+    function prevCard() {
+        if (currentIndex > 0) loadCard(currentIndex - 1);
+    }
+
+    function nextCard() {
+        if (currentIndex < cardsData.length - 1) loadCard(currentIndex + 1);
+    }
+
+    function randomCard() {
+        let newIdx;
+        do {
+            newIdx = Math.floor(Math.random() * cardsData.length);
+        } while (newIdx === currentIndex && cardsData.length > 1);
+        loadCard(newIdx);
+    }
+
+    // 滑动支持
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    document.querySelector('.card-container').addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    document.querySelector('.card-container').addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, {passive: true});
+
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        if (touchEndX < touchStartX - swipeThreshold) {
+            nextCard(); // 向左滑，下一张
+        }
+        if (touchEndX > touchStartX + swipeThreshold) {
+            prevCard(); // 向右滑，上一张
+        }
+    }
+
+    init();
+</script>
+
+</body>
+</html>

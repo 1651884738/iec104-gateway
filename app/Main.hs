@@ -11,6 +11,7 @@ import Network.Socket.ByteString (recv, sendAll)
 import System.IO (hFlush, stdout, hSetBuffering, BufferMode(..))
 
 import Protocol.APCI
+import Protocol.HexDump (analyzeHex)
 import Protocol.Parser
 
 -- | 网关配置
@@ -24,7 +25,7 @@ main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
     putStrLn "╔═══════════════════════════════════════════╗"
-    putStrLn "║     IEC 60870-5-104 Gateway  v0.1.0      ║"
+    putStrLn "║     IEC 60870-5-104 Gateway  v0.1.0       ║"
     putStrLn "╠═══════════════════════════════════════════╣"
     putStrLn $ "║  网关名称: " ++ padRight 31 gatewayName ++ "║"
     putStrLn $ "║  监听端口: " ++ padRight 31 gatewayPort ++ "║"
@@ -88,6 +89,7 @@ handleMasterSession sock addr connId _ = do
         if BS.null rawData
             then putStrLn $ tag ++ "连接关闭（对端断开）"
             else do
+                putStrLn $ tag ++ ">>> 收到 [Hex]: " ++ analyzeHex rawData
                 -- 将数据喂入解析器
                 p <- readIORef parserRef
                 processFrames tag sock started parserRef p rawData
@@ -124,21 +126,21 @@ handleFrame tag sock started frameData = do
                 -- U 帧处理
                 UFrame StartDTAct -> do
                     putStrLn $ tag ++ "收到 STARTDT Act → 回复 STARTDT Con"
-                    sendAll sock (encodeFrame (UFrame StartDTCon))
+                    sendFrame tag sock (UFrame StartDTCon)
                     writeIORef' started True
                     putStrLn $ tag ++ "✓ 数据传输已激活"
                     hFlush stdout
 
                 UFrame StopDTAct -> do
                     putStrLn $ tag ++ "收到 STOPDT Act → 回复 STOPDT Con"
-                    sendAll sock (encodeFrame (UFrame StopDTCon))
+                    sendFrame tag sock (UFrame StopDTCon)
                     writeIORef' started False
                     putStrLn $ tag ++ "✗ 数据传输已停止"
                     hFlush stdout
 
                 UFrame TestFRAct -> do
                     putStrLn $ tag ++ "收到 TESTFR Act → 回复 TESTFR Con"
-                    sendAll sock (encodeFrame (UFrame TestFRCon))
+                    sendFrame tag sock (UFrame TestFRCon)
                     hFlush stdout
 
                 UFrame utype -> do
@@ -158,7 +160,7 @@ handleFrame tag sock started frameData = do
                                 ++ ", RSN=" ++ show rsn
                                 ++ ", 载荷=" ++ show (BS.length payload) ++ " 字节)"
                             -- 回复 S 帧确认
-                            sendAll sock (encodeFrame (SFrame (ssn + 1)))
+                            sendFrame tag sock (SFrame (ssn + 1))
                             hFlush stdout
                         else do
                             putStrLn $ tag ++ "⚠ 收到 I 帧但数据传输未激活，忽略"
@@ -173,3 +175,10 @@ padRight :: Int -> String -> String
 padRight n s
     | length s >= n = s
     | otherwise = s ++ replicate (n - length s) ' '
+
+-- | 发送帧并打印 Hex
+sendFrame :: String -> Socket -> APCIFrame -> IO ()
+sendFrame tag sock frame = do
+    let bs = encodeFrame frame
+    putStrLn $ tag ++ "<<< 发送 [Hex]: " ++ analyzeHex bs
+    sendAll sock bs

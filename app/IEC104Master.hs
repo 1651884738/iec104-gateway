@@ -13,6 +13,7 @@ import System.IO (hFlush, stdout, hSetBuffering, hSetEcho, BufferMode(..), stdin
 import Data.Bits ((.&.), shiftR)
 
 import Protocol.APCI
+import Protocol.HexDump (analyzeHex)
 import Protocol.Parser
 import Protocol.ASDU
 import Protocol.TypeID
@@ -59,7 +60,7 @@ main = do
 
         -- STARTDT 握手
         putStrLn "[Master] 发送 STARTDT Act..."
-        sendAll sock (encodeFrame (UFrame StartDTAct))
+        sendFrame sock (UFrame StartDTAct)
         threadDelay 500000  -- 等待 0.5s 收到回复
         atomicModifyIORef' startedRef (\_ -> (True, ()))
 
@@ -75,6 +76,7 @@ receiveLoop sock parserRef recvSeqRef = loop
         if BS.null rawData
             then putStrLn "\n[Master] 网关断开连接" >> hFlush stdout
             else do
+                putStrLn $ "\n[Master] >>> 收到 [Hex]: " ++ analyzeHex rawData
                 p <- readIORef parserRef
                 processRecv sock parserRef recvSeqRef p rawData
                 loop
@@ -125,7 +127,7 @@ handleReceivedFrame sock recvSeqRef frameData = do
                 -- 更新接收序号
                 atomicModifyIORef' recvSeqRef (\_ -> (ssn + 1, ()))
                 -- 回复 S 帧
-                sendAll sock (encodeFrame (SFrame (ssn + 1)))
+                sendFrame sock (SFrame (ssn + 1))
     hFlush stdout
     putStr "> "
     hFlush stdout
@@ -147,7 +149,7 @@ interactiveMenu sock sendSeqRef recvSeqRef startedRef = do
                 loop
             "2" -> do  -- TESTFR
                 putStrLn "[Master] 发送 TESTFR Act..."
-                sendAll sock (encodeFrame (UFrame TestFRAct))
+                sendFrame sock (UFrame TestFRAct)
                 loop
             "3" -> do  -- 单点遥控
                 sendSingleCommand sock sendSeqRef recvSeqRef
@@ -157,12 +159,12 @@ interactiveMenu sock sendSeqRef recvSeqRef startedRef = do
                 loop
             "5" -> do  -- STOPDT
                 putStrLn "[Master] 发送 STOPDT Act..."
-                sendAll sock (encodeFrame (UFrame StopDTAct))
+                sendFrame sock (UFrame StopDTAct)
                 atomicModifyIORef' startedRef (\_ -> (False, ()))
                 loop
             "6" -> do  -- STARTDT (重新激活)
                 putStrLn "[Master] 发送 STARTDT Act..."
-                sendAll sock (encodeFrame (UFrame StartDTAct))
+                sendFrame sock (UFrame StartDTAct)
                 atomicModifyIORef' startedRef (\_ -> (True, ()))
                 loop
             "h" -> do
@@ -210,7 +212,7 @@ sendInterrogation sock sendSeqRef recvSeqRef = do
             ]
     let frame = IFrame ssn rsn asduBytes
     putStrLn $ "[Master] 发送总召唤 (SSN=" ++ show ssn ++ ", RSN=" ++ show rsn ++ ")"
-    sendAll sock (encodeFrame frame)
+    sendFrame sock frame
     hFlush stdout
 
 -- | 发送单点遥控命令 C_SC_NA (TypeID=45)
@@ -245,7 +247,7 @@ sendSingleCommand sock sendSeqRef recvSeqRef = do
     putStrLn $ "[Master] 发送单点遥控 IOA=" ++ show ioa
         ++ " 值=" ++ show val
         ++ " (SSN=" ++ show ssn ++ ")"
-    sendAll sock (encodeFrame frame)
+    sendFrame sock frame
     hFlush stdout
 
 -- | 发送电度总召命令 C_CI_NA (TypeID=101)
@@ -264,7 +266,7 @@ sendCounterInterrogation sock sendSeqRef recvSeqRef = do
             ]
     let frame = IFrame ssn rsn asduBytes
     putStrLn $ "[Master] 发送电度总召 (SSN=" ++ show ssn ++ ")"
-    sendAll sock (encodeFrame frame)
+    sendFrame sock frame
     hFlush stdout
 
 -- | 获取并递增发送序号
@@ -280,3 +282,10 @@ padRight :: Int -> String -> String
 padRight n s
     | length s >= n = s
     | otherwise = s ++ replicate (n - length s) ' '
+
+-- | 发送帧并打印 Hex
+sendFrame :: Socket -> APCIFrame -> IO ()
+sendFrame sock frame = do
+    let bs = encodeFrame frame
+    putStrLn $ "[Master] <<< 发送 [Hex]: " ++ analyzeHex bs
+    sendAll sock bs
